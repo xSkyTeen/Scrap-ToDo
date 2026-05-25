@@ -1,0 +1,14 @@
+# Entorno virtual de Python
+.venv/
+venv/
+ENV/
+
+# Caché de tokens de Microsoft (¡CRUCIAL!)
+token_cache.bin
+
+# Archivos de logs y estado local
+sync.log
+estado.json
+
+# Configuraciones propias de PyCharm (opcional pero recomendado)
+.idea/
