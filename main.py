@@ -34,7 +34,7 @@ if MS_REFRESH_TOKEN:
 
     # Validamos defensivamente si Microsoft devolvió un error en el diccionario
     if result and "error" in result:
-        print("❌ Error de Microsoft Auth con el Refresh Token proporcionado:")
+        print(" Error de Microsoft Auth con el Refresh Token proporcionado:")
         print(f"   Error: {result.get('error')}")
         print(f"   Descripción: {result.get('error_description')}")
         result = None  # Forzamos a que invalide el resultado para que no crashee abajo
@@ -85,12 +85,12 @@ AV_COOKIE = os.getenv("AULA_VIRTUAL_COOKIE")
 
 if AV_COOKIE and AV_COOKIE.strip():
     session.headers.update({"Cookie": AV_COOKIE.strip()})
-    print("✅ Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
+    print(" Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
 else:
     # Si detectamos que está corriendo en GitHub Actions (esta variable la crea GitHub siempre)
     # y la cookie llegó vacía, abortamos el proceso defensivamente.
     if os.getenv("GITHUB_ACTIONS"):
-        print("🚨 ERROR FATAL: No se encontró la variable 'AULA_VIRTUAL_COOKIE' en los Secrets de GitHub.")
+        print(" ERROR FATAL: No se encontró la variable 'AULA_VIRTUAL_COOKIE' en los Secrets de GitHub.")
         print("   Por favor, verifica que el Secret esté creado con el nombre exacto.")
         exit(1)
 
@@ -101,7 +101,7 @@ else:
         cookie_file='/home/sky/.config/zen/fqk3pjrk.Default (release)/cookies.sqlite'
     )
     session.cookies.update(cookies)
-    print("✅ Cookies Aula Virtual cargadas desde Zen Browser (Local)")
+    print(" Cookies Aula Virtual cargadas desde Zen Browser (Local)")
 
 
 # =========================================================
@@ -203,7 +203,7 @@ for curso in cursos:
             }
 
         requests.post(url_tasks, headers=headers_graph, json=body)
-        print(f"   🔹 Foro agregado: {titulo}")
+        print(f"    Foro agregado: {titulo}")
 
     # =====================================================
     # PROCESAR TAREAS
