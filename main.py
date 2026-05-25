@@ -25,23 +25,21 @@ result = None
 MS_REFRESH_TOKEN = os.getenv("MICROSOFT_REFRESH_TOKEN")
 
 if MS_REFRESH_TOKEN:
-    print(" Intentando login en la nube usando Refresh Token...")
-    # .strip() elimina espacios o saltos de línea accidentales al copiar el Secret
+    print("🔄 Intentando login en la nube usando Refresh Token...")
     result = app.acquire_token_by_refresh_token(
         refresh_token=MS_REFRESH_TOKEN.strip(),
         scopes=SCOPES
     )
 
-    # Validamos defensivamente si Microsoft devolvió un error en el diccionario
     if result and "error" in result:
-        print(" Error de Microsoft Auth con el Refresh Token proporcionado:")
+        print("❌ Error de Microsoft Auth con el Refresh Token proporcionado:")
         print(f"   Error: {result.get('error')}")
         print(f"   Descripción: {result.get('error_description')}")
-        result = None  # Forzamos a que invalide el resultado para que no crashee abajo
+        result = None
 
 # 2. Si no estamos en la nube (o falló el refresh token), usamos el flujo local
 if not result:
-    print(" Modo Local: Buscando caché o inicio interactivo...")
+    print("💻 Modo Local: Buscando caché o inicio interactivo...")
     cache = msal.SerializableTokenCache()
     if os.path.exists("token_cache.bin"):
         with open("token_cache.bin", "r") as f:
@@ -58,50 +56,60 @@ if not result:
         result = app.acquire_token_silent(SCOPES, account=accounts[0])
 
     if not result:
-        print(" Requiere login interactivo local.")
+        print("⚠️ Requiere login interactivo local.")
         result = app.acquire_token_interactive(scopes=SCOPES)
 
     if cache.has_state_changed:
         with open("token_cache.bin", "w") as f:
             f.write(cache.serialize())
 
-# Validamos que finalmente tengamos un token válido antes de armar las cabeceras
+# Validar Access Token final
 if result and "access_token" in result:
     access_token = result["access_token"]
     headers_graph = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
-    print(" Login Microsoft Graph Exitoso")
+    print("✅ Login Microsoft Graph Exitoso")
 else:
-    print(" FATAL: No se pudo obtener el Access Token de ninguna forma.")
+    print("🚨 FATAL: No se pudo obtener el Access Token de ninguna forma.")
     exit(1)
 
 # =========================================================
-# COOKIES AULA VIRTUAL (Adaptado para Local y Servidor)
+# COOKIES / LOGIN AULA VIRTUAL (Adaptado Local y Servidor)
 # =========================================================
 session = requests.Session()
-AV_COOKIE = os.getenv("AULA_VIRTUAL_COOKIE")
 
-if AV_COOKIE and AV_COOKIE.strip():
-    session.headers.update({"Cookie": AV_COOKIE.strip()})
-    print(" Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
-else:
-    # Si detectamos que está corriendo en GitHub Actions (esta variable la crea GitHub siempre)
-    # y la cookie llegó vacía, abortamos el proceso defensivamente.
-    if os.getenv("GITHUB_ACTIONS"):
-        print(" ERROR FATAL: No se encontró la variable 'AULA_VIRTUAL_COOKIE' en los Secrets de GitHub.")
-        print("   Por favor, verifica que el Secret esté creado con el nombre exacto.")
+UNAP_USER = os.getenv("UNAP_USUARIO")
+UNAP_PASS = os.getenv("UNAP_PASSWORD")
+
+if os.getenv("GITHUB_ACTIONS") and UNAP_USER and UNAP_PASS:
+    print("🔄 Modo Nube: Intentando login automático en el Aula Virtual UNAP...")
+    url_login = "https://aulavirtual2.unap.edu.pe/api/auth/login"
+    payload = {
+        "username": UNAP_USER.strip(),
+        "password": UNAP_PASS.strip()
+    }
+
+    response_login = session.post(url_login, json=payload)
+
+    if response_login.status_code == 200:
+        print("✅ Login en el Aula Virtual UNAP Exitoso (Sesión iniciada en la nube)")
+    else:
+        print(f"🚨 ERROR FATAL: Credenciales rechazadas por la UNAP. Status: {response_login.status_code}")
         exit(1)
-
-    # Si estamos en tu PC local, sigue buscando tus cookies de Zen Browser de forma normal
+else:
+    print("💻 Modo Local: Cargando cookies desde Zen Browser...")
     import browser_cookie3
 
-    cookies = browser_cookie3.firefox(
-        cookie_file='/home/sky/.config/zen/fqk3pjrk.Default (release)/cookies.sqlite'
-    )
-    session.cookies.update(cookies)
-    print(" Cookies Aula Virtual cargadas desde Zen Browser (Local)")
+    try:
+        cookies = browser_cookie3.firefox(
+            cookie_file='/home/sky/.config/zen/fqk3pjrk.Default (release)/cookies.sqlite'
+        )
+        session.cookies.update(cookies)
+        print("✅ Cookies Aula Virtual cargadas desde Zen Browser (Local)")
+    except Exception as e:
+        print(f"⚠️ No se pudieron cargar las cookies locales de Zen: {e}")
 
 
 # =========================================================
@@ -128,21 +136,16 @@ def formatear_fecha(fecha_str):
 # =========================================================
 # OBTENER CURSOS
 # =========================================================
-# =========================================================
-# OBTENER CURSOS
-# =========================================================
 url_cursos = "https://aulavirtual2.unap.edu.pe/web/user/info/system/courseinrole"
 response = session.get(url_cursos)
 
-# Validamos de manera robusta si la UNAP nos respondió con datos reales o nos botó
 try:
     cursos = response.json()
-    print(f" Cursos encontrados: {len(cursos)}")
+    print(f"✅ Cursos encontrados: {len(cursos)}")
 except requests.exceptions.JSONDecodeError:
-    print(" ERROR CRÍTICO: El Aula Virtual de la UNAP no devolvió un JSON válido.")
+    print("🚨 ERROR CRÍTICO: El Aula Virtual de la UNAP no devolvió un JSON válido.")
     print(f"   Código de estado HTTP del servidor: {response.status_code}")
     print(f"   Fragmento recibido (Primeros 300 caracteres):\n{response.text[:300]}")
-    print(" Diagnóstico: Esto pasa porque la sesión de 'AULA_VIRTUAL_COOKIE' expiró o se copió incompleta.")
     exit(1)
 
 # =========================================================
@@ -164,12 +167,12 @@ for curso in cursos:
 
     if nombre in mapa_listas:
         LIST_ID = mapa_listas[nombre]
-        print(f"\n Curso: {nombre} (Lista encontrada)")
+        print(f"\n📚 Curso: {nombre} (Lista encontrada)")
     else:
         response_create = requests.post(url_lists, headers=headers_graph, json={"displayName": nombre})
         LIST_ID = response_create.json()["id"]
         mapa_listas[nombre] = LIST_ID
-        print(f"\n Curso: {nombre} (Lista creada de cero)")
+        print(f"\n📚 Curso: {nombre} (Lista creada de cero)")
 
     existing_titles = set()
     url_tasks = f"https://graph.microsoft.com/v1.0/me/todo/lists/{LIST_ID}/tasks"
@@ -187,15 +190,15 @@ for curso in cursos:
     foros = response_foros.json() if response_foros.status_code == 200 else []
 
     for foro in foros:
-        titulo = f" {foro['name']}"
+        titulo = f"📢 {foro['name']}"
         if titulo in existing_titles:
             continue
 
         descripcion_cuerpo = (
-            f" Curso: {nombre}\n"
-            f" Unidad: {foro['unidadName']}\n"
-            f" Respuestas actuales: {foro['answers']}\n"
-            f"Fecha Límite: {foro['dateEndView']}"
+            f"📖 Curso: {nombre}\n"
+            f"📌 Unidad: {foro['unidadName']}\n"
+            f"💬 Respuestas actuales: {foro['answers']}\n"
+            f"⏰ Fecha Límite: {foro['dateEndView']}"
         )
 
         due_date = formatear_fecha(foro["dateEndView"])
@@ -215,7 +218,7 @@ for curso in cursos:
             }
 
         requests.post(url_tasks, headers=headers_graph, json=body)
-        print(f"    Foro agregado: {titulo}")
+        print(f"   🔹 Foro agregado: {titulo}")
 
     # =====================================================
     # PROCESAR TAREAS
@@ -225,19 +228,19 @@ for curso in cursos:
     tareas = response_tareas.json() if response_tareas.status_code == 200 else []
 
     for tarea in tareas:
-        titulo = f" {tarea['title']}"
+        titulo = f"📝 {tarea['title']}"
         if titulo in existing_titles:
             continue
 
         detalle_tarea = limpiar_html(tarea.get("description", "Sin descripción detallada."))
 
         descripcion_cuerpo = (
-            f" Curso: {nombre}\n"
-            f" Unidad: {tarea['unidad']}\n"
-            f" Estado Aula: {tarea['state']}\n"
-            f" Fecha Límite: {tarea['dateEnd']}\n"
+            f"📖 Curso: {nombre}\n"
+            f"📌 Unidad: {tarea['unidad']}\n"
+            f"🔄 Estado Aula: {tarea['state']}\n"
+            f"⏰ Fecha Límite: {tarea['dateEnd']}\n"
             f"----------------------------------------\n"
-            f" DETALLE:\n{detalle_tarea}"
+            f"📝 DETALLE:\n{detalle_tarea}"
         )
 
         due_date = formatear_fecha(tarea["dateEnd"])
@@ -257,6 +260,6 @@ for curso in cursos:
             }
 
         requests.post(url_tasks, headers=headers_graph, json=body)
-        print(f"   Tarea agregada: {titulo}")
+        print(f"   🔹 Tarea agregada: {titulo}")
 
-print("\n SINCRONIZACION FINALIZADA")
+print("\n🔥 SINCRONIZACION FINALIZADA")

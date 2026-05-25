@@ -4,7 +4,7 @@ on:
   schedule:
     # Se ejecuta cada 2 horas automáticamente (Hora UTC)
     - cron: '0 */2 * * *'
-  workflow_dispatch: # Activa el botón para correrlo manualmente desde la web
+  workflow_dispatch: # Activa el botón manual en la web
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
     - name: Configurar Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10' # <-- Corregido aquí (estaba python-python)
+        python-version: '3.10'
 
     - name: Instala las librerías necesarias
       run: |
@@ -26,9 +26,7 @@ jobs:
 
     - name: Ejecutar Sincronización Completa
       env:
-        # Cargamos todos los secretos desde GitHub de forma segura
-        AULA_VIRTUAL_COOKIE: ${{ secrets.AULA_VIRTUAL_COOKIE }}
         MICROSOFT_REFRESH_TOKEN: ${{ secrets.MICROSOFT_REFRESH_TOKEN }}
-        # Si decides ocultar el Client ID, descomenta la línea de abajo:
-        # CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
-      run: python main.py # <-- Asegúrate de que tu archivo se llame exactamente main.py
+        UNAP_USUARIO: ${{ secrets.UNAP_USUARIO }}
+        UNAP_PASSWORD: ${{ secrets.UNAP_PASSWORD }}
+      run: python main.py
