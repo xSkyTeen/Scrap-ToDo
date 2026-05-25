@@ -25,7 +25,7 @@ result = None
 MS_REFRESH_TOKEN = os.getenv("MICROSOFT_REFRESH_TOKEN")
 
 if MS_REFRESH_TOKEN:
-    print("🔄 Intentando login en la nube usando Refresh Token...")
+    print(" Intentando login en la nube usando Refresh Token...")
     # .strip() elimina espacios o saltos de línea accidentales al copiar el Secret
     result = app.acquire_token_by_refresh_token(
         refresh_token=MS_REFRESH_TOKEN.strip(),
@@ -41,7 +41,7 @@ if MS_REFRESH_TOKEN:
 
 # 2. Si no estamos en la nube (o falló el refresh token), usamos el flujo local
 if not result:
-    print("💻 Modo Local: Buscando caché o inicio interactivo...")
+    print(" Modo Local: Buscando caché o inicio interactivo...")
     cache = msal.SerializableTokenCache()
     if os.path.exists("token_cache.bin"):
         with open("token_cache.bin", "r") as f:
@@ -58,7 +58,7 @@ if not result:
         result = app.acquire_token_silent(SCOPES, account=accounts[0])
 
     if not result:
-        print("⚠️ Requiere login interactivo local.")
+        print(" Requiere login interactivo local.")
         result = app.acquire_token_interactive(scopes=SCOPES)
 
     if cache.has_state_changed:
@@ -72,9 +72,9 @@ if result and "access_token" in result:
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
-    print("✅ Login Microsoft Graph Exitoso")
+    print(" Login Microsoft Graph Exitoso")
 else:
-    print("🚨 FATAL: No se pudo obtener el Access Token de ninguna forma.")
+    print(" FATAL: No se pudo obtener el Access Token de ninguna forma.")
     exit(1)
 
 # =========================================================
@@ -85,7 +85,7 @@ AV_COOKIE = os.getenv("AULA_VIRTUAL_COOKIE")
 
 if AV_COOKIE:
     session.headers.update({"Cookie": AV_COOKIE.strip()})
-    print("✅ Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
+    print(" Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
 else:
     import browser_cookie3
 
@@ -93,7 +93,7 @@ else:
         cookie_file='/home/sky/.config/zen/fqk3pjrk.Default (release)/cookies.sqlite'
     )
     session.cookies.update(cookies)
-    print("✅ Cookies Aula Virtual cargadas desde Zen Browser (Local)")
+    print(" Cookies Aula Virtual cargadas desde Zen Browser (Local)")
 
 
 # =========================================================
@@ -144,12 +144,12 @@ for curso in cursos:
 
     if nombre in mapa_listas:
         LIST_ID = mapa_listas[nombre]
-        print(f"\n📚 Curso: {nombre} (Lista encontrada)")
+        print(f"\n Curso: {nombre} (Lista encontrada)")
     else:
         response_create = requests.post(url_lists, headers=headers_graph, json={"displayName": nombre})
         LIST_ID = response_create.json()["id"]
         mapa_listas[nombre] = LIST_ID
-        print(f"\n📚 Curso: {nombre} (Lista creada de cero)")
+        print(f"\n Curso: {nombre} (Lista creada de cero)")
 
     existing_titles = set()
     url_tasks = f"https://graph.microsoft.com/v1.0/me/todo/lists/{LIST_ID}/tasks"
@@ -167,15 +167,15 @@ for curso in cursos:
     foros = response_foros.json() if response_foros.status_code == 200 else []
 
     for foro in foros:
-        titulo = f"📢 {foro['name']}"
+        titulo = f" {foro['name']}"
         if titulo in existing_titles:
             continue
 
         descripcion_cuerpo = (
-            f"📖 Curso: {nombre}\n"
-            f"📌 Unidad: {foro['unidadName']}\n"
-            f"💬 Respuestas actuales: {foro['answers']}\n"
-            f"⏰ Fecha Límite: {foro['dateEndView']}"
+            f" Curso: {nombre}\n"
+            f" Unidad: {foro['unidadName']}\n"
+            f" Respuestas actuales: {foro['answers']}\n"
+            f"Fecha Límite: {foro['dateEndView']}"
         )
 
         due_date = formatear_fecha(foro["dateEndView"])
@@ -205,19 +205,19 @@ for curso in cursos:
     tareas = response_tareas.json() if response_tareas.status_code == 200 else []
 
     for tarea in tareas:
-        titulo = f"📝 {tarea['title']}"
+        titulo = f" {tarea['title']}"
         if titulo in existing_titles:
             continue
 
         detalle_tarea = limpiar_html(tarea.get("description", "Sin descripción detallada."))
 
         descripcion_cuerpo = (
-            f"📖 Curso: {nombre}\n"
-            f"📌 Unidad: {tarea['unidad']}\n"
-            f"🔄 Estado Aula: {tarea['state']}\n"
-            f"⏰ Fecha Límite: {tarea['dateEnd']}\n"
+            f" Curso: {nombre}\n"
+            f" Unidad: {tarea['unidad']}\n"
+            f" Estado Aula: {tarea['state']}\n"
+            f" Fecha Límite: {tarea['dateEnd']}\n"
             f"----------------------------------------\n"
-            f"📝 DETALLE:\n{detalle_tarea}"
+            f" DETALLE:\n{detalle_tarea}"
         )
 
         due_date = formatear_fecha(tarea["dateEnd"])
@@ -237,6 +237,6 @@ for curso in cursos:
             }
 
         requests.post(url_tasks, headers=headers_graph, json=body)
-        print(f"   🔹 Tarea agregada: {titulo}")
+        print(f"   Tarea agregada: {titulo}")
 
-print("\n🔥 SINCRONIZACION FINALIZADA")
+print("\n SINCRONIZACION FINALIZADA")
