@@ -2,8 +2,9 @@ name: Sincronizacion Aula Virtual UNAP
 
 on:
   schedule:
-    - cron: '0 */2 * * *'
-  workflow_dispatch:
+    # ⏱️ Se ejecuta automáticamente cada 5 minutos
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Por si quieres seguir picando el botón a mano
 
 jobs:
   build:
