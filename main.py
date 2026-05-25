@@ -128,10 +128,22 @@ def formatear_fecha(fecha_str):
 # =========================================================
 # OBTENER CURSOS
 # =========================================================
+# =========================================================
+# OBTENER CURSOS
+# =========================================================
 url_cursos = "https://aulavirtual2.unap.edu.pe/web/user/info/system/courseinrole"
 response = session.get(url_cursos)
-cursos = response.json()
-print(f"✅ Cursos encontrados: {len(cursos)}")
+
+# Validamos de manera robusta si la UNAP nos respondió con datos reales o nos botó
+try:
+    cursos = response.json()
+    print(f" Cursos encontrados: {len(cursos)}")
+except requests.exceptions.JSONDecodeError:
+    print(" ERROR CRÍTICO: El Aula Virtual de la UNAP no devolvió un JSON válido.")
+    print(f"   Código de estado HTTP del servidor: {response.status_code}")
+    print(f"   Fragmento recibido (Primeros 300 caracteres):\n{response.text[:300]}")
+    print(" Diagnóstico: Esto pasa porque la sesión de 'AULA_VIRTUAL_COOKIE' expiró o se copió incompleta.")
+    exit(1)
 
 # =========================================================
 # OBTENER LISTAS EXISTENTES
