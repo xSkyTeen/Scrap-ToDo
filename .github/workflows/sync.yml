@@ -2,9 +2,8 @@ name: Sincronizacion Aula Virtual UNAP
 
 on:
   schedule:
-    # Se ejecuta cada 2 horas automáticamente (Hora UTC)
     - cron: '0 */2 * * *'
-  workflow_dispatch: # Activa el botón manual en la web
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,6 +26,5 @@ jobs:
     - name: Ejecutar Sincronización Completa
       env:
         MICROSOFT_REFRESH_TOKEN: ${{ secrets.MICROSOFT_REFRESH_TOKEN }}
-        UNAP_USUARIO: ${{ secrets.UNAP_USUARIO }}
-        UNAP_PASSWORD: ${{ secrets.UNAP_PASSWORD }}
+        AULA_VIRTUAL_COOKIE: ${{ secrets.AULA_VIRTUAL_COOKIE }}
       run: python main.py
