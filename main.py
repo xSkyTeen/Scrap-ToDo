@@ -7,51 +7,62 @@ from datetime import datetime
 # =========================================================
 # CONFIG MICROSOFT GRAPH
 # =========================================================
-CLIENT_ID = "f7b10369-96d3-4a79-a7b6-1ebac4232def"
+# Busca el ID en GitHub Actions; si no existe (local), usa tu ID por defecto
+CLIENT_ID = os.getenv("CLIENT_ID", "f7b10369-96d3-4a79-a7b6-1ebac4232def")
+
 AUTHORITY = "https://login.microsoftonline.com/common"
 SCOPES = ["Tasks.ReadWrite", "User.Read"]
-
 # =========================================================
 # LOGIN MICROSOFT
 # =========================================================
-cache = msal.SerializableTokenCache()
-
-# En GitHub Actions, puedes guardar el token en un archivo persistente si deseas,
-# o usar el flujo interactivo/dispositivo. Para un bot 24/7 se suele usar
-# acquire_token_by_refresh_token, pero mantendremos tu lógica de cache adaptada.
-if os.path.exists("token_cache.bin"):
-    with open("token_cache.bin", "r") as f:
-        cache.deserialize(f.read())
-
 app = msal.PublicClientApplication(
     CLIENT_ID,
-    authority=AUTHORITY,
-    token_cache=cache
+    authority=AUTHORITY
 )
 
-accounts = app.get_accounts()
 result = None
 
-if accounts:
-    result = app.acquire_token_silent(SCOPES, account=accounts[0])
+# 1. Intentar levantar mediante el Refresh Token de GitHub (Modo Producción 24/7)
+MS_REFRESH_TOKEN = os.getenv("MICROSOFT_REFRESH_TOKEN")
 
+if MS_REFRESH_TOKEN:
+    print("🔄 Intentando login en la nube usando Refresh Token...")
+    result = app.acquire_token_by_refresh_token(
+        refresh_token=MS_REFRESH_TOKEN,
+        scopes=SCOPES
+    )
+
+# 2. Si no estamos en la nube, usamos el flujo local normal con la caché local
 if not result:
-    # NOTA: En GitHub Actions (sin entorno gráfico), acquire_token_interactive fallará.
-    # Si expira el token, lo ideal es usar acquire_token_by_device_flow.
-    print("⚠️ Requiere re-autenticación. Se recomienda usar Device Flow para servidores remotos.")
-    result = app.acquire_token_interactive(scopes=SCOPES)
+    cache = msal.SerializableTokenCache()
+    if os.path.exists("token_cache.bin"):
+        with open("token_cache.bin", "r") as f:
+            cache.deserialize(f.read())
 
-if cache.has_state_changed:
-    with open("token_cache.bin", "w") as f:
-        f.write(cache.serialize())
+    app = msal.PublicClientApplication(
+        CLIENT_ID,
+        authority=AUTHORITY,
+        token_cache=cache
+    )
+
+    accounts = app.get_accounts()
+    if accounts:
+        result = app.acquire_token_silent(SCOPES, account=accounts[0])
+
+    if not result:
+        print("⚠️ Requiere login interactivo local.")
+        result = app.acquire_token_interactive(scopes=SCOPES)
+
+    if cache.has_state_changed:
+        with open("token_cache.bin", "w") as f:
+            f.write(cache.serialize())
 
 access_token = result["access_token"]
 headers_graph = {
     "Authorization": f"Bearer {access_token}",
     "Content-Type": "application/json"
 }
-print("✅ Login Microsoft Graph")
-
+print("✅ Login Microsoft Graph Exitoso")
 # =========================================================
 # COOKIES AULA VIRTUAL (Adaptado para Local y Servidor)
 # =========================================================
