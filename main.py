@@ -7,11 +7,10 @@ from datetime import datetime
 # =========================================================
 # CONFIG MICROSOFT GRAPH
 # =========================================================
-# Busca el ID en GitHub Actions; si no existe (local), usa tu ID por defecto
-CLIENT_ID = os.getenv("CLIENT_ID")
-
+CLIENT_ID = os.getenv("CLIENT_ID", "f7b10369-96d3-4a79-a7b6-1ebac4232def")
 AUTHORITY = "https://login.microsoftonline.com/common"
 SCOPES = ["Tasks.ReadWrite", "User.Read"]
+
 # =========================================================
 # LOGIN MICROSOFT
 # =========================================================
@@ -27,13 +26,22 @@ MS_REFRESH_TOKEN = os.getenv("MICROSOFT_REFRESH_TOKEN")
 
 if MS_REFRESH_TOKEN:
     print("🔄 Intentando login en la nube usando Refresh Token...")
+    # .strip() elimina espacios o saltos de línea accidentales al copiar el Secret
     result = app.acquire_token_by_refresh_token(
-        refresh_token=MS_REFRESH_TOKEN,
+        refresh_token=MS_REFRESH_TOKEN.strip(),
         scopes=SCOPES
     )
 
-# 2. Si no estamos en la nube, usamos el flujo local normal con la caché local
+    # Validamos defensivamente si Microsoft devolvió un error en el diccionario
+    if result and "error" in result:
+        print("❌ Error de Microsoft Auth con el Refresh Token proporcionado:")
+        print(f"   Error: {result.get('error')}")
+        print(f"   Descripción: {result.get('error_description')}")
+        result = None  # Forzamos a que invalide el resultado para que no crashee abajo
+
+# 2. Si no estamos en la nube (o falló el refresh token), usamos el flujo local
 if not result:
+    print("💻 Modo Local: Buscando caché o inicio interactivo...")
     cache = msal.SerializableTokenCache()
     if os.path.exists("token_cache.bin"):
         with open("token_cache.bin", "r") as f:
@@ -57,22 +65,26 @@ if not result:
         with open("token_cache.bin", "w") as f:
             f.write(cache.serialize())
 
-access_token = result["access_token"]
-headers_graph = {
-    "Authorization": f"Bearer {access_token}",
-    "Content-Type": "application/json"
-}
-print("✅ Login Microsoft Graph Exitoso")
+# Validamos que finalmente tengamos un token válido antes de armar las cabeceras
+if result and "access_token" in result:
+    access_token = result["access_token"]
+    headers_graph = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    print("✅ Login Microsoft Graph Exitoso")
+else:
+    print("🚨 FATAL: No se pudo obtener el Access Token de ninguna forma.")
+    exit(1)
+
 # =========================================================
 # COOKIES AULA VIRTUAL (Adaptado para Local y Servidor)
 # =========================================================
 session = requests.Session()
-
-# Si estás en GitHub Actions, lee la cookie desde los Secrets para evitar usar browser_cookie3
 AV_COOKIE = os.getenv("AULA_VIRTUAL_COOKIE")
 
 if AV_COOKIE:
-    session.headers.update({"Cookie": AV_COOKIE})
+    session.headers.update({"Cookie": AV_COOKIE.strip()})
     print("✅ Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
 else:
     import browser_cookie3
@@ -91,9 +103,7 @@ def limpiar_html(html_text):
     """Elimina etiquetas HTML como <p>, </p>, etc., para dejar texto plano."""
     if not html_text:
         return ""
-    # Reemplaza <p> cerrados o <br> por saltos de línea para mantener orden
     texto = re.sub(r'</p>|<br\s*/?>', '\n', html_text)
-    # Remueve cualquier otra etiqueta HTML restante
     texto = re.sub(r'<[^>]+>', '', texto)
     return texto.strip()
 
@@ -132,7 +142,6 @@ for curso in cursos:
     nombre = curso["name"].strip()
     section_id = curso["sectionId"]
 
-    # Crear o encontrar la lista del curso
     if nombre in mapa_listas:
         LIST_ID = mapa_listas[nombre]
         print(f"\n📚 Curso: {nombre} (Lista encontrada)")
@@ -142,7 +151,6 @@ for curso in cursos:
         mapa_listas[nombre] = LIST_ID
         print(f"\n📚 Curso: {nombre} (Lista creada de cero)")
 
-    # Obtener tareas ya existentes en la lista para evitar duplicados
     existing_titles = set()
     url_tasks = f"https://graph.microsoft.com/v1.0/me/todo/lists/{LIST_ID}/tasks"
     response_tasks = requests.get(url_tasks, headers=headers_graph)
@@ -163,7 +171,6 @@ for curso in cursos:
         if titulo in existing_titles:
             continue
 
-        # Observación formateada para la descripción de la tarea
         descripcion_cuerpo = (
             f"📖 Curso: {nombre}\n"
             f"📌 Unidad: {foro['unidadName']}\n"
@@ -202,10 +209,8 @@ for curso in cursos:
         if titulo in existing_titles:
             continue
 
-        # Extraemos y limpiamos la descripción que viene en el JSON de la UNAP
         detalle_tarea = limpiar_html(tarea.get("description", "Sin descripción detallada."))
 
-        # Estructuramos el campo de observación/cuerpo en To-Do
         descripcion_cuerpo = (
             f"📖 Curso: {nombre}\n"
             f"📌 Unidad: {tarea['unidad']}\n"
