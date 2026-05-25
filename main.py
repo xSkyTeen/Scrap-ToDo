@@ -83,17 +83,25 @@ else:
 session = requests.Session()
 AV_COOKIE = os.getenv("AULA_VIRTUAL_COOKIE")
 
-if AV_COOKIE:
+if AV_COOKIE and AV_COOKIE.strip():
     session.headers.update({"Cookie": AV_COOKIE.strip()})
-    print(" Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
+    print("✅ Cookies Aula Virtual cargadas desde Variables de Entorno (GitHub)")
 else:
+    # Si detectamos que está corriendo en GitHub Actions (esta variable la crea GitHub siempre)
+    # y la cookie llegó vacía, abortamos el proceso defensivamente.
+    if os.getenv("GITHUB_ACTIONS"):
+        print("🚨 ERROR FATAL: No se encontró la variable 'AULA_VIRTUAL_COOKIE' en los Secrets de GitHub.")
+        print("   Por favor, verifica que el Secret esté creado con el nombre exacto.")
+        exit(1)
+
+    # Si estamos en tu PC local, sigue buscando tus cookies de Zen Browser de forma normal
     import browser_cookie3
 
     cookies = browser_cookie3.firefox(
         cookie_file='/home/sky/.config/zen/fqk3pjrk.Default (release)/cookies.sqlite'
     )
     session.cookies.update(cookies)
-    print(" Cookies Aula Virtual cargadas desde Zen Browser (Local)")
+    print("✅ Cookies Aula Virtual cargadas desde Zen Browser (Local)")
 
 
 # =========================================================
