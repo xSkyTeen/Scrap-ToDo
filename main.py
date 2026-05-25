@@ -8,7 +8,7 @@ from datetime import datetime
 # CONFIG MICROSOFT GRAPH
 # =========================================================
 # Busca el ID en GitHub Actions; si no existe (local), usa tu ID por defecto
-CLIENT_ID = os.getenv("CLIENT_ID", "f7b10369-96d3-4a79-a7b6-1ebac4232def")
+CLIENT_ID = os.getenv("CLIENT_ID")
 
 AUTHORITY = "https://login.microsoftonline.com/common"
 SCOPES = ["Tasks.ReadWrite", "User.Read"]
